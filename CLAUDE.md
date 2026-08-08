@@ -84,7 +84,12 @@ npm run smoke      # live READ-ONLY call (claims/search limit 1; needs YANDEX_DE
 
 ## Releasing
 
-1. Bump `version` in `package.json` (single source of truth for now).
+Full walkthrough (incl. the MCP registry and its pitfalls): `docs/PUBLISHING.md`.
+
+1. Bump `version` in **three places, byte-identical**: `package.json`,
+   `server.json` (root) and `server.json` `packages[0]`; update `CHANGELOG.md`
+   (move `[Unreleased]` into a dated section). Check: `grep -n '"version"' package.json server.json`.
 2. `npm publish` (runs typecheck + tests + build via `prepublishOnly` / `prepare`).
 3. `git commit`, `git tag -a vX.Y.Z -m vX.Y.Z`, `git push origin main --follow-tags`.
 4. GitHub Release: `gh release create vX.Y.Z --title vX.Y.Z --generate-notes --verify-tag`.
+5. MCP registry: `mcp-publisher logout && mcp-publisher login github --token "$(gh auth token)" && mcp-publisher publish`.
