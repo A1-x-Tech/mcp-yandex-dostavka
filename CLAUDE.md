@@ -1,0 +1,90 @@
+# CLAUDE.md — mcp-yandex-dostavka
+
+MCP server for the Yandex Delivery B2B API (TypeScript, stdio). A **write API**:
+tools create, accept and cancel real deliveries. Two independent contours behind
+one server: **express** (same-day claims — `b2b.taxi.yandex.net`,
+`POST/GET /b2b/cargo/integration/v2/*`) and **platform** (NDD / pickup points —
+`b2b-authproxy.taxi.yandex.net`, `/api/b2b/platform/*`). Auth on both is
+`Authorization: Bearer <token>` from the dostavka.yandex.ru cabinet; the shared
+`YANDEX_DELIVERY_TOKEN` can be overridden per contour. `raw_request` is the
+escape hatch for the ~30 endpoints without a dedicated tool.
+
+## Commands
+
+```bash
+npm run dev        # run from source (tsx watch)
+npm test           # unit tests + dist smoke (incl. a real MCP handshake), no network
+npm run typecheck  # types for src + tests
+npm run build      # emit dist/
+npm run smoke      # live READ-ONLY call (claims/search limit 1; needs YANDEX_DELIVERY_TOKEN)
+```
+
+## Architecture
+
+- `src/config.ts` — env → config; throws `ConfigError` (with a `reason` code) instead of
+  exiting, so `index.ts` can report the drop-off before dying. Requires a token per contour:
+  `YANDEX_DELIVERY_TOKEN` fills both, `YANDEX_DELIVERY_EXPRESS_TOKEN` /
+  `YANDEX_DELIVERY_PLATFORM_TOKEN` override it. Reasons: `missing_token`,
+  `missing_express_token`, `missing_platform_token`. Optional: `*_BASE_URL` per contour
+  (platform test contour: `b2b.taxi.tst.yandex.net`), `YANDEX_DELIVERY_LANG`,
+  `YANDEX_DELIVERY_TIMEOUT_MS`, `YANDEX_DELIVERY_MAX_RETRIES`.
+- `src/client.ts` — all HTTP. `request(contour, method, path, {query, body, idempotent})`
+  picks the base + Bearer token by contour, builds the query string, sends
+  `Accept-Language`, rejects paths that resolve to a foreign origin (SSRF guard),
+  enforces an AbortController timeout that also covers reading the body, retries with
+  backoff (honors `Retry-After`) and throws `DeliveryError(status, body)`. One typed
+  method per endpoint; `claims/create` mints a UUID `request_id` (query param) when the
+  caller omits one.
+- `src/tools/express.ts` — the nine `express_*` tools; `src/tools/platform.ts` — the six
+  `platform_*` tools; `src/tools/raw.ts` — `raw_request` (contour + path + query + body).
+  `src/tools/util.ts` — `ok`/`fail`, the `READ_ONLY`/`WRITE`/`DESTRUCTIVE` annotation
+  presets and shared zod schema factories.
+- `src/index.ts` — wires every `register*` into the McpServer.
+- `src/telemetry.ts` — anonymous usage pings (ids/names/versions only, never data or
+  arguments; fire-and-forget, must never block or throw; opt-out `ASKADS_TELEMETRY=0`).
+  `startup_failed` is the exception: `sendBlocking` awaits it, because the caller exits
+  right after. Its `reason` is a closed vocabulary — never a variable's name or value.
+
+## Conventions (do not break)
+
+- **This is a write API — gate the retries.** 429 is always retried; 5xx and network
+  errors are retried ONLY when `idempotent` is set (GETs, side-effect-free POST reads,
+  and claims/create thanks to its `request_id` token). Never mark `claims/accept`,
+  `claims/cancel`, `offers/confirm` or `request/cancel` idempotent: a 502 after the
+  write commits would duplicate the write.
+- **Annotations are per-tool, not global.** Reads carry `READ_ONLY`, state-changing
+  calls `WRITE`, cancellations and `raw_request` `DESTRUCTIVE` — all four hints set
+  explicitly. `annotations.test.ts` pins the full map; extend it with every new tool.
+- **Contour routing lives in the client, not the tools.** Tools never know hosts,
+  tokens or whether a parameter rides in the query or the body — that mapping (incl.
+  `claim_id` as a query param and `request_id` injection) is `client.ts`'s job.
+- **Validate inputs with zod** in `inputSchema`; tool descriptions are in Russian (the
+  audience is a Russian-speaking operator's LLM). Use the shared schema **factories**
+  in `util.ts` (a fresh schema per field avoids `$ref` dedup in the JSON schema). Keep
+  nested objects `.passthrough()` — the spec has known gaps and the API evolves.
+- **Output compact JSON via `ok`** — the consumer is an LLM; pretty-printing burns
+  tokens. Responses pass through verbatim (describe the fields in the tool
+  `description`, the only place the external model reads).
+- **Express money is decimal strings, platform money is integer kopecks.** Express
+  dimensions are meters/kg, platform dimensions are cm/grams. Don't "fix" either.
+- **Express errors come in two shapes:** non-2xx `{code, message}` AND an
+  `error_messages` array inside 200 responses of claims/info. Both must keep reaching
+  the caller.
+
+## Adding a tool
+
+1. Add (or extend) `src/tools/<contour>.ts` with the `server.registerTool` call.
+2. If it hits a new endpoint, add a typed method to `src/client.ts` — decide its
+   `idempotent` flag consciously (see Conventions).
+3. Import and call the register fn in `src/index.ts` (new modules only).
+4. Add it to the `EXPECTED` annotations map in `annotations.test.ts`, to the tool lists
+   in `express.test.ts`/`platform.test.ts` and `test/dist-smoke.test.js`, and to
+   `docs/TOOLS.md`.
+5. `npm run typecheck && npm test`.
+
+## Releasing
+
+1. Bump `version` in `package.json` (single source of truth for now).
+2. `npm publish` (runs typecheck + tests + build via `prepublishOnly` / `prepare`).
+3. `git commit`, `git tag -a vX.Y.Z -m vX.Y.Z`, `git push origin main --follow-tags`.
+4. GitHub Release: `gh release create vX.Y.Z --title vX.Y.Z --generate-notes --verify-tag`.
