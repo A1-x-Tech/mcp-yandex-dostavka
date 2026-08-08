@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.a1-x-tech/mcp-yandex-dostavka",
+  "name": "io.github.A1-x-Tech/mcp-yandex-dostavka",
   "title": "Yandex Delivery MCP",
-  "description": "MCP server for the Yandex Delivery B2B API: express-courier claims and tracking plus NDD/pickup-point offers and orders.",
+  "description": "MCP server for the Yandex Delivery B2B API: express claims, tracking, NDD/pickup-point orders.",
   "websiteUrl": "https://github.com/A1-x-Tech/mcp-yandex-dostavka#readme",
   "repository": {
     "url": "https://github.com/A1-x-Tech/mcp-yandex-dostavka",
