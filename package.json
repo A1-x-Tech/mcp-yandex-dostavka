@@ -1,6 +1,6 @@
 {
   "name": "mcp-yandex-dostavka",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for the Yandex Delivery B2B API (dostavka.yandex.ru) — express-courier price checks, claims and tracking plus NDD/pickup-point offers and orders for AI agents.",
   "mcpName": "io.github.A1-x-Tech/mcp-yandex-dostavka",
   "type": "module",
