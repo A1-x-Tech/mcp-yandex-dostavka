@@ -1,0 +1,23 @@
+{
+  "name": "mcp-yandex-dostavka",
+  "version": "0.0.1",
+  "description": "MCP-сервер для Яндекс Доставки (dostavka.yandex.ru) — расчёт стоимости, заявки и трекинг отправлений. Для Claude, Cursor, Codex и других AI-клиентов.",
+  "keywords": ["mcp", "model-context-protocol", "yandex", "yandex-dostavka", "delivery", "logistics", "claude", "cursor", "codex"],
+  "homepage": "https://github.com/A1-x-Tech/mcp-yandex-dostavka#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/A1-x-Tech/mcp-yandex-dostavka.git"
+  },
+  "license": "MIT",
+  "author": "gistrec <gistrec@gmail.com>",
+  "type": "module",
+  "bin": {
+    "mcp-yandex-dostavka": "index.js"
+  },
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}
