@@ -8,6 +8,7 @@
     "mcp-yandex-dostavka": "dist/index.js"
   },
   "files": [
+    "assets/a1-logo-warm.svg",
     "dist",
     "test"
   ],
