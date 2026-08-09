@@ -4,7 +4,7 @@
 [![CI](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml/badge.svg)](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-<img src="./assets/a1-logo-warm.svg" alt="A1" width="22">&nbsp;**Yandex Delivery MCP** — MCP-сервер, с которым Claude, Cursor, Codex и другие AI-клиенты рассчитывают, оформляют и отслеживают B2B-доставки по обычной команде. В отличие от ручной работы с API, он уже знает оба контура Яндекс Доставки, их схемы и границы между расчётом и реальным заказом.
+<img src="./assets/a1-logo.svg" alt="A1" width="22">&nbsp;**Яндекс Доставка MCP** — MCP-сервер, с которым Claude, Cursor, Codex и другие AI-клиенты рассчитывают, оформляют и отслеживают B2B-доставки по обычной команде. В отличие от ручной работы с API, он уже знает оба контура Яндекс Доставки, их схемы и границы между расчётом и реальным заказом.
 
 - **Оба контура API.** Экспресс-доставка день в день и Платформа для доставки в другой день, ПВЗ и постаматов.
 - **16 готовых инструментов.** 9 для Экспресса, 6 для Платформы и универсальный `raw_request` для остальных методов API.
