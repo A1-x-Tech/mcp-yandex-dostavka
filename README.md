@@ -2,6 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/mcp-yandex-dostavka)](https://www.npmjs.com/package/mcp-yandex-dostavka)
 [![CI](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml/badge.svg)](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml)
+[![Glama](https://glama.ai/mcp/servers/A1-x-Tech/mcp-yandex-dostavka/badges/score.svg)](https://glama.ai/mcp/servers/A1-x-Tech/mcp-yandex-dostavka)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 <img src="./assets/a1-logo.svg" alt="A1" width="22">&nbsp;**Яндекс Доставка MCP** — MCP-сервер, с которым Claude, Cursor, Codex и другие AI-клиенты рассчитывают, оформляют и отслеживают B2B-доставки по обычной команде. В отличие от ручной работы с API, он уже знает оба контура Яндекс Доставки, их схемы и границы между расчётом и реальным заказом.
