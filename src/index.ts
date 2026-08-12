@@ -10,6 +10,26 @@ import { registerExpressTools } from "./tools/express.js";
 import { registerPlatformTools } from "./tools/platform.js";
 import { registerRawTool } from "./tools/raw.js";
 
+/**
+ * Prose handed to the calling model in the `initialize` result — the only place
+ * it learns what the tool list cannot say: which API this is, where the money
+ * and the point of no return are, and which failures lie about their cause.
+ */
+const INSTRUCTIONS =
+  "Это B2B API Яндекс Доставки: отправления корпоративного клиента с договором и токеном из " +
+  "кабинета dostavka.yandex.ru, а не сервис для частных отправителей; хост экспресса " +
+  "b2b.taxi.yandex.net — это Доставка, а не API Такси. Контура два и они независимы: экспресс (день " +
+  "в день, заявки) и платформа (доставка в другой день, ПВЗ и постаматы) — разные хосты, иногда " +
+  "токены разных кабинетов, разные единицы: у экспресса деньги строкой-decimal и метры/кг, у " +
+  "платформы копейки целым числом и см/граммы. Лимиты Яндекса не опубликованы: 429 повторяется " +
+  "автоматически с учётом Retry-After, 5xx и обрывы связи — только для расчётов, чтений и создания " +
+  "заявки, поэтому после сбоя записи не повторяйте её, а перечитайте состояние. Если 401/403 идут " +
+  "по всему контуру, а второй работает, это токен другого кабинета или смена пароля в ЛК, а не " +
+  "нехватка прав. Расчёты ничего не бронируют, но реальную доставку заказывают " +
+  "express_accept_claim, platform_confirm_offer и express_create_claim с auto_accept=true, а отмена " +
+  "бывает платной; тестовая среда есть только у платформы — у экспресса безопасны лишь расчёт и " +
+  "чтение.";
+
 /** Reads the package version so the server reports its real version to MCP clients. */
 function readVersion(): string {
   try {
@@ -45,10 +65,14 @@ async function main(): Promise<void> {
   const config = await loadConfigOrExit(telemetry);
   const client = new DeliveryClient(config);
 
-  const server = new McpServer({
-    name: "mcp-yandex-dostavka",
-    version: readVersion(),
-  });
+  const server = new McpServer(
+    {
+      name: "mcp-yandex-dostavka",
+      version: readVersion(),
+    },
+    // Surfaces as `instructions` in the initialize result.
+    { instructions: INSTRUCTIONS },
+  );
 
   instrumentToolCalls(server, telemetry);
   server.server.oninitialized = () => {

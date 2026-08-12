@@ -91,6 +91,10 @@ test("dist bin completes an MCP handshake over stdio and lists every tool", asyn
     // The handshake reported the real server identity.
     const server = client.getServerVersion();
     assert.equal(server?.name, "mcp-yandex-dostavka");
+    // ...and the prose the calling model reads before picking a tool.
+    const instructions = client.getInstructions();
+    assert.equal(typeof instructions, "string");
+    assert.ok(instructions.length > 0, "initialize result must carry non-empty instructions");
   } finally {
     await client.close();
   }
