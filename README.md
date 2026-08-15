@@ -57,7 +57,6 @@
 - [Что можно поручить](#что-можно-поручить)
 - [Как ассистент работает с доставкой](#как-ассистент-работает-с-доставкой)
 - [Когда создаётся реальный заказ](#когда-создаётся-реальный-заказ)
-- [Установка в другие AI-приложения](#установка-в-другие-ai-приложения)
 - [Получение доступа к API](#получение-доступа-к-api)
 - [Технические настройки](#технические-настройки)
 - [Данные и телеметрия](#данные-и-телеметрия)
@@ -71,19 +70,153 @@
 
 1. [Получите токен](#получение-доступа-к-api) в личном кабинете Яндекс Доставки.
 
-2. Добавьте MCP-сервер в Codex:
+2. Добавьте MCP-сервер в своё AI-приложение.
 
-   ```bash
-   codex mcp add yandex-dostavka \
-     --env YANDEX_DELIVERY_TOKEN=ваш_токен \
-     -- npx -y mcp-yandex-dostavka@latest
-   ```
+<details open>
+<summary><strong>Codex</strong></summary>
 
-3. Начните новую задачу Codex и выполните первый расчёт:
+<br>
 
-   > Рассчитай доставку коробки 2 кг с Льва Толстого, 16 на Тверскую, 7.
+**Через интерфейс**
 
-Для Claude Code, Claude Desktop, Cursor и VS Code готовые конфигурации находятся в разделе [«Установка в другие AI-приложения»](#установка-в-другие-ai-приложения).
+1. Откройте настольное приложение Codex.
+2. Перейдите в **Settings → MCP servers** и нажмите **Add server**.
+3. Укажите параметры сервера:
+
+   - **Name:** `yandex-dostavka`
+   - **Transport:** `STDIO`
+   - **Command:** `npx`
+   - **Arguments:** `-y mcp-yandex-dostavka@latest`
+   - **Environment variable:** `YANDEX_DELIVERY_TOKEN`
+   - **Value:** ваш токен Яндекс Доставки
+
+4. Сохраните настройки и перезапустите Codex.
+
+**Через CLI**
+
+```bash
+codex mcp add yandex-dostavka \
+  --env YANDEX_DELIVERY_TOKEN=ваш_токен \
+  -- npx -y mcp-yandex-dostavka@latest
+```
+
+</details>
+
+<details>
+<summary><strong>Claude Desktop</strong></summary>
+
+<br>
+
+1. Откройте Claude Desktop и перейдите в **Settings → Developer**.
+2. Нажмите **Edit Config**. Claude откроет файл настроек в текстовом редакторе.
+3. Добавьте в него MCP-сервер:
+
+```json
+{
+  "mcpServers": {
+    "yandex-dostavka": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-yandex-dostavka@latest"],
+      "env": {
+        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
+      }
+    }
+  }
+}
+```
+
+4. Сохраните файл и перезапустите Claude Desktop.
+
+> Локальный MCP-сервер работает в Claude Desktop, но не в браузерной версии Claude.
+
+</details>
+
+<details>
+<summary><strong>Claude Code</strong></summary>
+
+<br>
+
+```bash
+claude mcp add --transport stdio \
+  --env YANDEX_DELIVERY_TOKEN=ваш_токен \
+  yandex-dostavka \
+  -- npx -y mcp-yandex-dostavka@latest
+```
+
+</details>
+
+<details>
+<summary><strong>Cursor</strong></summary>
+
+<br>
+
+1. Откройте раздел **Customize → MCP** в Cursor.
+2. Откройте пользовательский файл `~/.cursor/mcp.json`. Если его ещё нет, создайте его.
+3. Добавьте сервер:
+
+```json
+{
+  "mcpServers": {
+    "yandex-dostavka": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-yandex-dostavka@latest"],
+      "env": {
+        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
+      }
+    }
+  }
+}
+```
+
+4. Вернитесь в **Customize → MCP** и включите сервер.
+
+</details>
+
+<details>
+<summary><strong>VS Code</strong></summary>
+
+<br>
+
+**Через интерфейс**
+
+1. Откройте палитру команд: `⇧⌘P` на macOS или `Ctrl+Shift+P` на Windows и Linux.
+2. Выполните команду **MCP: Add Server**.
+3. Выберите локальный сервер `STDIO` и укажите команду `npx -y mcp-yandex-dostavka@latest`.
+4. Назовите сервер `yandex-dostavka` и выберите установку **Global**, чтобы он был доступен во всех проектах.
+5. Выполните команду **MCP: Open User Configuration** и добавьте токен в настройки созданного сервера:
+
+```json
+"env": {
+  "YANDEX_DELIVERY_TOKEN": "ваш_токен"
+}
+```
+
+**Через файл настроек**
+
+Откройте пользовательский `mcp.json` командой **MCP: Open User Configuration** и добавьте сервер целиком:
+
+```json
+{
+  "servers": {
+    "yandex-dostavka": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-yandex-dostavka@latest"],
+      "env": {
+        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+После подключения откройте новый диалог в выбранном приложении и попросите:
+
+> Рассчитай доставку коробки 2 кг с Льва Толстого, 16 на Тверскую, 7.
 
 ## Что можно поручить
 
@@ -131,112 +264,6 @@
 | Отменить доставку | Ассистент изменяет реальный заказ; отмена может быть платной | **Да, заказ изменяется** |
 
 **Точная команда на оформление или отмену разрешает соответствующее действие.** Поведение дополнительных подтверждений зависит от AI-приложения: некоторые клиенты спрашивают разрешение перед каждой записью, другие следуют собственным политикам.
-
-## Установка в другие AI-приложения
-
-<details open>
-<summary><strong>Codex</strong></summary>
-
-<br>
-
-1. Добавьте сервер:
-
-   ```bash
-   codex mcp add yandex-dostavka \
-     --env YANDEX_DELIVERY_TOKEN=ваш_токен \
-     -- npx -y mcp-yandex-dostavka@latest
-   ```
-
-2. Начните новую задачу Codex.
-
-3. Проверьте подключение:
-
-   > Рассчитай доставку коробки 2 кг с Льва Толстого, 16 на Тверскую, 7.
-
-</details>
-
-<details>
-<summary><strong>Claude Code</strong></summary>
-
-<br>
-
-```bash
-claude mcp add yandex-dostavka \
-  -e YANDEX_DELIVERY_TOKEN=ваш_токен \
-  -- npx -y mcp-yandex-dostavka@latest
-```
-
-</details>
-
-<details>
-<summary><strong>Claude Desktop</strong></summary>
-
-<br>
-
-Откройте `claude_desktop_config.json`: на macOS он находится в `~/Library/Application Support/Claude/`, на Windows — в `%APPDATA%\Claude\`.
-
-```json
-{
-  "mcpServers": {
-    "yandex-dostavka": {
-      "command": "npx",
-      "args": ["-y", "mcp-yandex-dostavka@latest"],
-      "env": {
-        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
-      }
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>Cursor</strong></summary>
-
-<br>
-
-Добавьте сервер в `~/.cursor/mcp.json` или в `.cursor/mcp.json` проекта:
-
-```json
-{
-  "mcpServers": {
-    "yandex-dostavka": {
-      "command": "npx",
-      "args": ["-y", "mcp-yandex-dostavka@latest"],
-      "env": {
-        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
-      }
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><strong>VS Code</strong></summary>
-
-<br>
-
-Создайте `.vscode/mcp.json`. Здесь используется ключ `servers`, а не `mcpServers`:
-
-```json
-{
-  "servers": {
-    "yandex-dostavka": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "mcp-yandex-dostavka@latest"],
-      "env": {
-        "YANDEX_DELIVERY_TOKEN": "ваш_токен"
-      }
-    }
-  }
-}
-```
-
-</details>
 
 ## Получение доступа к API
 
