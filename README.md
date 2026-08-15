@@ -79,7 +79,13 @@
 
 <br>
 
-Откройте терминал и выполните:
+**Через интерфейс приложения:**
+
+1. Откройте **Settings → Plugins → MCP servers**.
+2. Нажмите **Add server**.
+3. Добавьте команду запуска `npx -y mcp-yandex-dostavka@latest` и переменную окружения `YANDEX_DELIVERY_TOKEN` со своим токеном.
+
+**Через командную строку:**
 
 ```bash
 codex mcp add yandex-dostavka \
