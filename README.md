@@ -358,7 +358,3 @@ npm test
 ## Помощь и обратная связь
 
 Нашли ошибку или не хватает сценария? [Создайте issue](https://github.com/A1-x-Tech/mcp-yandex-dostavka/issues) или напишите команде A1 в Telegram: [@gistrec](https://t.me/gistrec).
-
-## Лицензия
-
-MIT — см. [LICENSE](LICENSE).
