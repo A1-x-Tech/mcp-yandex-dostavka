@@ -362,16 +362,6 @@ ASKADS_TELEMETRY=0
 - [npm-пакет](https://www.npmjs.com/package/mcp-yandex-dostavka) — опубликованная версия `mcp-yandex-dostavka`.
 - [API доставки день в день](https://yandex.ru/support/delivery-profile/ru/api/express/openapi/) и [API доставки на другой день](https://yandex.ru/support/delivery-profile/ru/api/other-day/ref/) — официальная документация Яндекс Доставки.
 
-Проверить проект локально:
-
-```bash
-npm install
-npm run typecheck
-npm test
-```
-
-Автоматические проверки не обращаются к сети. `npm run smoke` — отдельная живая проверка чтения с реальным токеном.
-
 ## Помощь и обратная связь
 
 Нашли ошибку или не хватает сценария? [Создайте issue](https://github.com/A1-x-Tech/mcp-yandex-dostavka/issues) или напишите команде A1 в Telegram: [@gistrec](https://t.me/gistrec).
