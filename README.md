@@ -99,7 +99,9 @@ codex mcp add yandex-dostavka \
 codex mcp list
 ```
 
-[Официальная инструкция Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
+Команда сохраняет сервер в общей конфигурации Codex. Если Codex уже открыт, перезапустите его.
+
+[Официальная инструкция Codex](https://developers.openai.com/codex/mcp/)
 
 </details>
 
@@ -368,4 +370,4 @@ ASKADS_TELEMETRY=0
 
 ## Помощь и обратная связь
 
-Нашли ошибку или не хватает сценария? [Создайте issue](https://github.com/A1-x-Tech/mcp-yandex-dostavka/issues) или напишите команде A1 в Telegram: [@gistrec](https://t.me/gistrec).
+Нашли ошибку или не хватает сценария? [Создайте issue](https://github.com/A1-x-Tech/mcp-yandex-dostavka/issues) или напишите в [Telegram](https://t.me/a1_mcp).
