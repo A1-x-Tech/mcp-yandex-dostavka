@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { CancelState, DeliveryConfig } from "./types.js";
-import { DeliveryError } from "./types.js";
+import { CredentialsError, DeliveryError } from "./types.js";
 
 export type HttpMethod = "GET" | "POST";
 
@@ -32,9 +32,27 @@ export interface RequestOptions {
   idempotent?: boolean;
 }
 
+/**
+ * Call-time texts for a missing token — formerly the startup errors that killed
+ * the process before the MCP handshake, preserved verbatim (pinned in
+ * client.test.ts). The message is the product: it is what the calling model
+ * relays to the user, so it names the variables to set and says the server
+ * needs a restart — there is no in-chat login for a Bearer token.
+ */
+const MISSING_TOKEN_TEXT =
+  "YANDEX_DELIVERY_TOKEN is required (Bearer token from dostavka.yandex.ru → «Интеграции» → «Получить токен»).";
+const MISSING_EXPRESS_TOKEN_TEXT =
+  "Express-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_EXPRESS_TOKEN.";
+const MISSING_PLATFORM_TOKEN_TEXT =
+  "Platform-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_PLATFORM_TOKEN.";
+const RESTART_HINT =
+  " This is not a network failure and retrying will not help: the operator must set these " +
+  "environment variables in the MCP client's server config and restart the server — they are " +
+  "read only at startup.";
+
 export class DeliveryClient {
   private readonly bases: Record<Contour, string>;
-  private readonly tokens: Record<Contour, string>;
+  private readonly tokens: Record<Contour, string | undefined>;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
@@ -53,9 +71,28 @@ export class DeliveryClient {
     this.retryBaseMs = config.retryBaseMs ?? 500;
   }
 
-  private headers(contour: Contour, hasBody: boolean): Record<string, string> {
+  /**
+   * The Bearer token serving `contour`, or a CredentialsError naming the fix.
+   * The check is per contour and per call: a half-configured server keeps
+   * serving the contour it has a token for, and only the bare contour's calls
+   * fail. With no tokens at all the shared-variable message wins — that is
+   * what an unconfigured install should be told to set first.
+   */
+  private token(contour: Contour): string {
+    const token = this.tokens[contour];
+    if (token) return token;
+    const neither = !this.tokens.express && !this.tokens.platform;
+    const what = neither
+      ? MISSING_TOKEN_TEXT
+      : contour === "express"
+        ? MISSING_EXPRESS_TOKEN_TEXT
+        : MISSING_PLATFORM_TOKEN_TEXT;
+    throw new CredentialsError(what + RESTART_HINT);
+  }
+
+  private headers(token: string, hasBody: boolean): Record<string, string> {
     const h: Record<string, string> = {
-      Authorization: `Bearer ${this.tokens[contour]}`,
+      Authorization: `Bearer ${token}`,
       // Required by the express methods; harmless for the platform ones.
       "Accept-Language": this.config.lang,
     };
@@ -99,9 +136,11 @@ export class DeliveryClient {
   /**
    * Low-level request to a Yandex Delivery path relative to the contour's base
    * (e.g. "b2b/cargo/integration/v2/claims/info" or "api/b2b/platform/request/info").
-   * Retries 429 always; 5xx and network errors/timeouts only for idempotent
-   * requests (see {@link RequestOptions.idempotent}); any other non-2xx throws
-   * a {@link DeliveryError}.
+   * Throws {@link CredentialsError} before any network I/O when the contour
+   * serving the call has no Bearer token. Retries 429 always; 5xx and network
+   * errors/timeouts only for idempotent requests (see
+   * {@link RequestOptions.idempotent}); any other non-2xx throws a
+   * {@link DeliveryError}.
    */
   async request<T = unknown>(
     contour: Contour,
@@ -109,6 +148,12 @@ export class DeliveryClient {
     path: string,
     opts: RequestOptions = {},
   ): Promise<T> {
+    // A missing token is rejected before the request is built, retried or
+    // sent: it is a configuration problem, not transport trouble, so it must
+    // never enter the retry/backoff loop below — and fetch never fires
+    // without auth (pinned in client.test.ts).
+    const token = this.token(contour);
+
     // Guard method !== "GET" keeps undici from crashing on a GET-with-body.
     const hasBody = opts.body !== undefined && method !== "GET";
 
@@ -135,7 +180,7 @@ export class DeliveryClient {
           target,
           {
             method,
-            headers: this.headers(contour, hasBody),
+            headers: this.headers(token, hasBody),
             body: hasBody ? JSON.stringify(opts.body) : undefined,
           },
           path,
