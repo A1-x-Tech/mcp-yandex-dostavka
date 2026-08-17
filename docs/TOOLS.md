@@ -1,5 +1,8 @@
 # Tools
 
+For human-facing Russian pages organized by user tasks, open the
+[MCP capability catalog](./capabilities/index.md).
+
 Yandex Delivery is a **write API**: tools below create, accept and cancel real
 deliveries. The server spans two independent contours — **express** (same-day
 courier claims, `b2b.taxi.yandex.net`, `/b2b/cargo/integration/v2/*`) and
