@@ -21,16 +21,19 @@ npm run smoke      # live READ-ONLY call (claims/search limit 1; needs YANDEX_DE
 
 ## Architecture
 
-- `src/config.ts` — env → config; throws `ConfigError` (with a `reason` code) instead of
-  exiting, so `index.ts` can report the drop-off before dying. Requires a token per contour:
-  `YANDEX_DELIVERY_TOKEN` fills both, `YANDEX_DELIVERY_EXPRESS_TOKEN` /
-  `YANDEX_DELIVERY_PLATFORM_TOKEN` override it. Reasons: `missing_token`,
-  `missing_express_token`, `missing_platform_token`. Optional: `*_BASE_URL` per contour
-  (platform test contour: `b2b.taxi.tst.yandex.net`), `YANDEX_DELIVERY_LANG`,
-  `YANDEX_DELIVERY_TIMEOUT_MS`, `YANDEX_DELIVERY_MAX_RETRIES`.
+- `src/config.ts` — env → config. Tokens: `YANDEX_DELIVERY_TOKEN` fills both contours,
+  `YANDEX_DELIVERY_EXPRESS_TOKEN` / `YANDEX_DELIVERY_PLATFORM_TOKEN` override it. A missing
+  token is NOT an error: the field stays `undefined` (an empty string reads as absent), the
+  server starts degraded and the client raises `CredentialsError` (lives in `types.ts`) when
+  a call needs that contour. `ConfigError` (with a `reason` code) is reserved for malformed
+  values, caught by `loadConfigOrDegraded` in `index.ts` (no such checks exist today).
+  Optional: `*_BASE_URL` per contour (platform test contour: `b2b.taxi.tst.yandex.net`),
+  `YANDEX_DELIVERY_LANG`, `YANDEX_DELIVERY_TIMEOUT_MS`, `YANDEX_DELIVERY_MAX_RETRIES`.
 - `src/client.ts` — all HTTP. `request(contour, method, path, {query, body, idempotent})`
-  picks the base + Bearer token by contour, builds the query string, sends
-  `Accept-Language`, rejects paths that resolve to a foreign origin (SSRF guard),
+  picks the base + Bearer token by contour (a bare contour throws `CredentialsError` right
+  there — before the request is built, retried or sent; the message opens with the historical
+  startup text verbatim and ends with the env-and-restart fix), builds the query string,
+  sends `Accept-Language`, rejects paths that resolve to a foreign origin (SSRF guard),
   enforces an AbortController timeout that also covers reading the body, retries with
   backoff (honors `Retry-After`) and throws `DeliveryError(status, body)`. One typed
   method per endpoint; `claims/create` mints a UUID `request_id` (query param) when the
@@ -39,14 +42,36 @@ npm run smoke      # live READ-ONLY call (claims/search limit 1; needs YANDEX_DE
   `platform_*` tools; `src/tools/raw.ts` — `raw_request` (contour + path + query + body).
   `src/tools/util.ts` — `ok`/`fail`, the `READ_ONLY`/`WRITE`/`DESTRUCTIVE` annotation
   presets and shared zod schema factories.
-- `src/index.ts` — wires every `register*` into the McpServer.
+- `src/index.ts` — wires every `register*` into the McpServer. `loadConfigOrDegraded()`
+  catches `ConfigError`, pings `startup_failed` (fire-and-forget) and degrades the config to
+  "no tokens"; a start with a missing token prepends the per-contour unconfigured prefix —
+  plus `Проблема конфигурации: <message>` when a ConfigError was caught — to the initialize
+  `instructions`, and `oninitialized` sends `server_start` for a fully configured install or
+  `unconfigured_start` otherwise (reason in the old check order: with both contours bare it
+  is `missing_token`, never a contour-specific code).
 - `src/telemetry.ts` — anonymous usage pings (ids/names/versions only, never data or
   arguments; fire-and-forget, must never block or throw; opt-out `ASKADS_TELEMETRY=0`).
-  `startup_failed` is the exception: `sendBlocking` awaits it, because the caller exits
-  right after. Its `reason` is a closed vocabulary — never a variable's name or value.
+  `server_start` means "a usable install started"; an install missing a token sends
+  `unconfigured_start` instead, and `startup_failed` remains for a config unusable at load
+  time (malformed values). Every `reason` is a closed vocabulary (`missing_token`,
+  `missing_express_token`, `missing_platform_token`) — never a variable's name or value.
 
 ## Conventions (do not break)
 
+- **Never exit because of configuration.** A server that dies before the MCP handshake
+  leaves the user with a red cross and no reason — telemetry across this line of servers
+  showed that state accounted for nearly every unconfigured install, and almost none of them
+  recovered. A missing token is a survivable state: start, answer `initialize`/`tools/list`
+  (with the unconfigured prefix in the instructions), and let the call fail with
+  `CredentialsError` — per contour, so a half-configured server keeps serving the contour it
+  has a token for. There are no login tools: tokens come only from the environment, so the
+  fix is the operator setting the variables and restarting the server. `config.test.ts`,
+  `client.test.ts` and `test/dist-smoke.test.js` pin this.
+- **Credential failures are not transport failures.** `CredentialsError` is thrown where
+  `request()` selects the contour's Bearer token — before the request is built, the
+  retry/backoff branch and fetch: retrying it burns seconds of backoff before the user sees
+  the one message that helps. Pinned by "fetch must not be called" assertions in
+  `client.test.ts`.
 - **This is a write API — gate the retries.** 429 is always retried; 5xx and network
   errors are retried ONLY when `idempotent` is set (GETs, side-effect-free POST reads,
   and claims/create thanks to its `request_id` token). Never mark `claims/accept`,

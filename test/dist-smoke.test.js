@@ -70,6 +70,16 @@ test("dist registers the full tool set", () => {
   assert.deepEqual(names.sort(), ALL_TOOLS);
 });
 
+/** process.env without any YANDEX_DELIVERY_* variable, telemetry off — the suite stays offline. */
+function bareEnv(extra = {}) {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key, value]) => value !== undefined && !key.startsWith("YANDEX_DELIVERY_"),
+    ),
+  );
+  return { ...env, ASKADS_TELEMETRY: "0", ...extra };
+}
+
 test("dist bin completes an MCP handshake over stdio and lists every tool", async () => {
   const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
   const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
@@ -77,11 +87,7 @@ test("dist bin completes an MCP handshake over stdio and lists every tool", asyn
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
-    env: {
-      ...process.env,
-      YANDEX_DELIVERY_TOKEN: "smoke-test-token",
-      ASKADS_TELEMETRY: "0",
-    },
+    env: bareEnv({ YANDEX_DELIVERY_TOKEN: "smoke-test-token" }),
   });
   const client = new Client({ name: "dist-smoke", version: "0.0.0" });
   await client.connect(transport);
@@ -95,6 +101,85 @@ test("dist bin completes an MCP handshake over stdio and lists every tool", asyn
     const instructions = client.getInstructions();
     assert.equal(typeof instructions, "string");
     assert.ok(instructions.length > 0, "initialize result must carry non-empty instructions");
+    assert.ok(!instructions.startsWith("ВНИМАНИЕ"), "a configured start must not carry the unconfigured prefix");
+  } finally {
+    await client.close();
+  }
+});
+
+/**
+ * The degraded-start contract: without any token the binary used to exit(1)
+ * before the handshake, leaving the client a dead server and no reason. It must
+ * now start, list every tool, open the instructions with the fix, and answer a
+ * tool call with the actionable error — offline: the CredentialsError fires
+ * before any fetch, so this test never touches the network.
+ */
+test("dist bin starts without tokens: handshake, tool list, actionable call error", async () => {
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
+    env: bareEnv(),
+    stderr: "ignore",
+  });
+  const client = new Client({ name: "dist-smoke-unconfigured", version: "0.0.0" });
+  await client.connect(transport);
+  try {
+    // The model must read the fix before it picks a tool.
+    const instructions = client.getInstructions() ?? "";
+    assert.match(instructions, /ВНИМАНИЕ/, "instructions must open with the unconfigured prefix");
+    assert.match(instructions, /YANDEX_DELIVERY_TOKEN/, "and name the variable to set");
+    assert.match(instructions, /перезапустить сервер/, "and say the server needs a restart");
+
+    const { tools } = await client.listTools();
+    assert.deepEqual(tools.map((t) => t.name).sort(), ALL_TOOLS);
+
+    // A tool call fails with the exact historical message instead of killing the server.
+    const result = await client.callTool({ name: "express_search_claims", arguments: {} });
+    assert.equal(result.isError, true, "the call must fail, not the connection");
+    const text = result.content.map((c) => c.text ?? "").join(" ");
+    assert.match(
+      text,
+      /YANDEX_DELIVERY_TOKEN is required \(Bearer token from dostavka\.yandex\.ru → «Интеграции» → «Получить токен»\)\./,
+      "the error must carry the historical startup text verbatim",
+    );
+    assert.match(text, /restart the server/, "and the restart hint");
+  } finally {
+    await client.close();
+  }
+});
+
+test("dist bin with only a platform token serves platform and rejects express by name", async () => {
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [fileURLToPath(new URL("../dist/index.js", import.meta.url))],
+    env: bareEnv({ YANDEX_DELIVERY_PLATFORM_TOKEN: "smoke-platform-token" }),
+    stderr: "ignore",
+  });
+  const client = new Client({ name: "dist-smoke-half-configured", version: "0.0.0" });
+  await client.connect(transport);
+  try {
+    // The prefix is per contour: it must point at the express token and not
+    // talk the model out of using the configured platform contour.
+    const instructions = client.getInstructions() ?? "";
+    assert.match(instructions, /YANDEX_DELIVERY_EXPRESS_TOKEN/, "instructions must name the express override");
+    assert.match(instructions, /платформенный контур настроен/, "and say the platform contour works");
+
+    // An express call fails offline (the CredentialsError fires before fetch)
+    // with the express-contour text, not the shared-token one.
+    const result = await client.callTool({ name: "express_search_claims", arguments: {} });
+    assert.equal(result.isError, true);
+    const text = result.content.map((c) => c.text ?? "").join(" ");
+    assert.match(
+      text,
+      /Express-contour token is missing: set YANDEX_DELIVERY_TOKEN \(shared\) or YANDEX_DELIVERY_EXPRESS_TOKEN\./,
+      "the error must carry the express-contour startup text verbatim",
+    );
   } finally {
     await client.close();
   }

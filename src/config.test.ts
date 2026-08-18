@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { ConfigError, loadConfig } from "./config.js";
+import { loadConfig } from "./config.js";
 
 /** Every env var the config reads — cleared by default in each test. */
 const ALL_VARS: Record<string, string | undefined> = {
@@ -33,32 +33,51 @@ function withEnv(vars: Record<string, string | undefined>, run: () => void): voi
 }
 
 /**
- * The reason codes below are the vocabulary the telemetry dashboard groups by —
- * renaming one silently splits a bar in two, so they are pinned here.
+ * Missing tokens used to throw here, which killed the process before the MCP
+ * handshake and left the user with a silent red cross. It is now a survivable
+ * state: the server starts, answers initialize/tools/list, and the client
+ * raises CredentialsError per contour at call time (pinned in client.test.ts).
+ * Pinned here because reverting it would restore that dead end.
  */
-function reasonOf(vars: Record<string, string | undefined>): string {
-  let caught: unknown;
-  withEnv(vars, () => {
-    try {
-      loadConfig();
-    } catch (err) {
-      caught = err;
-    }
+test("no tokens at all is not an error — the config loads with empty fields", () => {
+  withEnv({}, () => {
+    const config = loadConfig();
+    assert.equal(config.expressToken, undefined);
+    assert.equal(config.platformToken, undefined);
+    assert.equal(config.expressBase, "https://b2b.taxi.yandex.net");
+    assert.equal(config.platformBase, "https://b2b-authproxy.taxi.yandex.net");
   });
-  assert.ok(caught instanceof ConfigError, "config problems must throw ConfigError, not exit");
-  return caught.reason;
-}
-
-test("no tokens at all reports missing_token", () => {
-  assert.equal(reasonOf({}), "missing_token");
 });
 
-test("only an express token leaves the platform contour bare", () => {
-  assert.equal(reasonOf({ YANDEX_DELIVERY_EXPRESS_TOKEN: "exp" }), "missing_platform_token");
+test("only an express token leaves the platform contour bare, without throwing", () => {
+  withEnv({ YANDEX_DELIVERY_EXPRESS_TOKEN: "exp" }, () => {
+    const config = loadConfig();
+    assert.equal(config.expressToken, "exp");
+    assert.equal(config.platformToken, undefined);
+  });
 });
 
-test("only a platform token leaves the express contour bare", () => {
-  assert.equal(reasonOf({ YANDEX_DELIVERY_PLATFORM_TOKEN: "plt" }), "missing_express_token");
+test("only a platform token leaves the express contour bare, without throwing", () => {
+  withEnv({ YANDEX_DELIVERY_PLATFORM_TOKEN: "plt" }, () => {
+    const config = loadConfig();
+    assert.equal(config.expressToken, undefined);
+    assert.equal(config.platformToken, "plt");
+  });
+});
+
+test("an empty value is treated as absent, not as an empty credential", () => {
+  withEnv(
+    {
+      YANDEX_DELIVERY_TOKEN: "",
+      YANDEX_DELIVERY_EXPRESS_TOKEN: "",
+      YANDEX_DELIVERY_PLATFORM_TOKEN: "",
+    },
+    () => {
+      const config = loadConfig();
+      assert.equal(config.expressToken, undefined);
+      assert.equal(config.platformToken, undefined);
+    },
+  );
 });
 
 test("the shared token fills both contours and defaults apply", () => {

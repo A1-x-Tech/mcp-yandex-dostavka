@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DeliveryClient } from "./client.js";
+import { CredentialsError } from "./types.js";
 import type { DeliveryConfig } from "./types.js";
 
 const EXPRESS_BASE = "https://b2b.taxi.yandex.net";
@@ -430,6 +431,80 @@ test("request() rejects an absolute path (SSRF) on both contours, without fetchi
       }
     }
   }
+});
+
+// --- Missing tokens (degraded start) ---
+
+// The exact startup-era texts, relayed verbatim at call time — pinned so a
+// reworded message does not silently change what the model tells the user.
+const MISSING_TOKEN_TEXT =
+  "YANDEX_DELIVERY_TOKEN is required (Bearer token from dostavka.yandex.ru → «Интеграции» → «Получить токен»).";
+const MISSING_EXPRESS_TOKEN_TEXT =
+  "Express-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_EXPRESS_TOKEN.";
+const MISSING_PLATFORM_TOKEN_TEXT =
+  "Platform-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_PLATFORM_TOKEN.";
+
+/** Asserts the rejection is a CredentialsError opening with `expected` verbatim, plus the restart hint. */
+function credentialsErrorWith(expected: string): (err: unknown) => boolean {
+  return (err: unknown) => {
+    assert.ok(err instanceof CredentialsError, "must be a CredentialsError");
+    assert.equal((err as Error).name, "CredentialsError");
+    const message = (err as Error).message;
+    assert.ok(
+      message.startsWith(expected),
+      `the message must open with the historical startup error verbatim, got: ${message}`,
+    );
+    assert.match(message, /restart the server/, "the fix must mention the restart");
+    assert.match(message, /not a network failure/, "and rule out a retry");
+    return true;
+  };
+}
+
+test("no tokens at all: any contour throws the shared-token CredentialsError, fetch never called", async () => {
+  // maxRetries is deliberately non-zero: zero fetch calls proves the error
+  // skips the retry/backoff loop entirely, not merely runs out of retries.
+  const mock = mockFetch(() => new Response("{}", { status: 200 }));
+  try {
+    const client = makeClient({ expressToken: undefined, platformToken: undefined, maxRetries: 3 });
+    await assert.rejects(() => client.searchClaims({}), credentialsErrorWith(MISSING_TOKEN_TEXT));
+    await assert.rejects(() => client.listPickupPoints({}), credentialsErrorWith(MISSING_TOKEN_TEXT));
+    assert.equal(mock.calls.length, 0, "must not fetch at all — no retries, no auth header, no replay");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("only a platform token: an express call names the express variables, fetch never called", async () => {
+  const mock = mockFetch(() => new Response("{}", { status: 200 }));
+  try {
+    const client = makeClient({ expressToken: undefined, maxRetries: 3 });
+    await assert.rejects(() => client.getClaim("c1"), credentialsErrorWith(MISSING_EXPRESS_TOKEN_TEXT));
+    assert.equal(mock.calls.length, 0, "fetch must not be called without the contour's token");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("only an express token: a platform call names the platform variables, fetch never called", async () => {
+  const mock = mockFetch(() => new Response("{}", { status: 200 }));
+  try {
+    const client = makeClient({ platformToken: undefined, maxRetries: 3 });
+    await assert.rejects(() => client.getRequest({ request_id: "r1" }), credentialsErrorWith(MISSING_PLATFORM_TOKEN_TEXT));
+    assert.equal(mock.calls.length, 0, "fetch must not be called without the contour's token");
+  } finally {
+    mock.restore();
+  }
+});
+
+test("a half-configured server still serves the contour it has a token for", async () => {
+  const { client, calls, restore } = harness({ platformToken: undefined });
+  try {
+    await client.getClaim("c1");
+  } finally {
+    restore();
+  }
+  assert.equal(calls.length, 1, "the express call must go through");
+  assert.equal(calls[0].auth, "Bearer EXP");
 });
 
 test("request() still accepts relative API paths on both contours", async () => {
