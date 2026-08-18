@@ -98,13 +98,18 @@ npm run smoke      # live READ-ONLY call (claims/search limit 1; needs YANDEX_DE
 
 ## Adding a tool
 
+Before adding or materially changing a public tool, read
+`docs/a1-mcp-capability-documentation-contract.md` in full. It owns the
+human-facing page structure, the private NMT-to-public-language boundary and the
+state-change wording for `docs/capabilities/`.
+
 1. Add (or extend) `src/tools/<contour>.ts` with the `server.registerTool` call.
 2. If it hits a new endpoint, add a typed method to `src/client.ts` — decide its
    `idempotent` flag consciously (see Conventions).
 3. Import and call the register fn in `src/index.ts` (new modules only).
 4. Add it to the `EXPECTED` annotations map in `annotations.test.ts`, to the tool lists
-   in `express.test.ts`/`platform.test.ts` and `test/dist-smoke.test.js`, and to
-   `docs/TOOLS.md`.
+   in `express.test.ts`/`platform.test.ts` and `test/dist-smoke.test.js`, to
+   `docs/TOOLS.md`, and to `docs/capabilities/`.
 5. `npm run typecheck && npm test`.
 
 ## Releasing

@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { registerExpressTools } from "./express.js";
 import { registerPlatformTools } from "./platform.js";
 import { registerRawTool } from "./raw.js";
@@ -76,5 +79,57 @@ test("no read-only tool is marked destructive and vice versa", () => {
       assert.equal(a?.idempotentHint, false, `${name}: writes are not idempotent for the client`);
     }
     assert.equal(a?.openWorldHint, true, `${name} should set openWorldHint`);
+  }
+});
+
+test("every registered tool has a public capability page with the correct impact", () => {
+  const docsDir = fileURLToPath(new URL("../../docs/capabilities/", import.meta.url));
+  const index = fs.readFileSync(path.join(docsDir, "index.md"), "utf8");
+  const categoryLeads = new Set<string>();
+  const forbiddenPublicTerms =
+    /\b(Core Job|Big Job|Micro Job|Job Graph|Critical Chain of Jobs|AJTBD|NMT)\b/u;
+  assert.equal(
+    fs.readdirSync(docsDir).filter((name) => name.endsWith(".md")).length,
+    Object.keys(EXPECTED).length + 1,
+    "capability directory must contain one page per tool plus index.md",
+  );
+
+  for (const [name, annotations] of Object.entries(EXPECTED)) {
+    const docPath = path.join(docsDir, name + ".md");
+    assert.ok(fs.existsSync(docPath), name + ": missing docs/capabilities/" + name + ".md");
+
+    const doc = fs.readFileSync(docPath, "utf8");
+    assert.match(doc, /^# A1 · Яндекс Доставка · /u, name + ": invalid public title");
+    const categoryLead =
+      doc.match(/\*\*MCP-инструмент \(tool\) для Яндекс Доставки:\*\* помогает [^\n]+/u)?.[0] ?? "";
+    assert.ok(categoryLead, name + ": missing MCP tool category sentence");
+    assert.ok(!categoryLeads.has(categoryLead), name + ": category sentence must be unique");
+    categoryLeads.add(categoryLead);
+    assert.ok(doc.includes("<code>" + name + "</code>"), name + ": technical name is missing");
+    assert.doesNotMatch(doc, forbiddenPublicTerms, name + ": internal methodology leaked into public copy");
+    assert.match(doc, /## Какую задачу решает\n\n> Я хочу /u, name + ": user task must use «Я хочу»");
+
+    const impact = annotations.readOnlyHint
+      ? "**Воздействие:** только чтение"
+      : annotations.destructiveHint
+        ? "**Воздействие:** опасная операция"
+        : "**Воздействие:** изменяет данные";
+    assert.ok(doc.includes(impact), name + ": impact label does not match annotations");
+
+    for (const heading of [
+      "Какую задачу решает",
+      "Когда использовать",
+      "Что нужно передать",
+      "Что вернёт",
+      "Что изменится в Яндекс Доставке",
+      "Пример запроса",
+      "Возможные ошибки и ограничения",
+      "Связанные MCP-инструменты",
+      "Технические сведения",
+    ]) {
+      assert.ok(doc.includes("## " + heading), name + ": missing section " + heading);
+    }
+
+    assert.ok(index.includes("./" + name + ".md"), name + ": missing from capability catalog");
   }
 });
