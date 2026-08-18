@@ -29,10 +29,19 @@ export type PaymentMethod = "already_paid" | "card_on_receipt" | "postpay";
 export type PickupPointType = "pickup_point" | "terminal" | "warehouse";
 
 export interface DeliveryConfig {
-  /** Bearer token for the express (claims) contour. Treated as a secret. */
-  expressToken: string;
-  /** Bearer token for the platform (NDD) contour. Treated as a secret. */
-  platformToken: string;
+  /**
+   * Bearer token for the express (claims) contour. Treated as a secret. Absent
+   * when neither YANDEX_DELIVERY_TOKEN nor YANDEX_DELIVERY_EXPRESS_TOKEN is
+   * set — the server still starts (degraded) and the client raises
+   * {@link CredentialsError} when a call needs this contour.
+   */
+  expressToken?: string;
+  /**
+   * Bearer token for the platform (NDD) contour. Treated as a secret. Absent
+   * when neither YANDEX_DELIVERY_TOKEN nor YANDEX_DELIVERY_PLATFORM_TOKEN is
+   * set — same degraded start as `expressToken`.
+   */
+  platformToken?: string;
   /** Express API root. Defaults to https://b2b.taxi.yandex.net. */
   expressBase: string;
   /**
@@ -48,6 +57,23 @@ export interface DeliveryConfig {
   maxRetries?: number;
   /** Base backoff in milliseconds, doubled each retry. Defaults to 500. */
   retryBaseMs?: number;
+}
+
+/**
+ * Raised when a tool call needs a contour whose Bearer token was never
+ * configured. The message is the whole point of the class: it is the only text
+ * the calling model reads and relays, so it names the variables to set (and
+ * that the server needs a restart) instead of describing the failure. The
+ * client throws it where the contour's token is selected — before the request
+ * is built, retried or sent: a missing credential is a configuration problem,
+ * not transport trouble, so it must never enter the retry/backoff branch or
+ * reach fetch.
+ */
+export class CredentialsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CredentialsError";
+  }
 }
 
 /**

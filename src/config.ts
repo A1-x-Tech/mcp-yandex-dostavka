@@ -1,14 +1,15 @@
 import type { DeliveryConfig } from "./types.js";
 
 /** Default express (claims) contour host. */
-const DEFAULT_EXPRESS_BASE = "https://b2b.taxi.yandex.net";
+export const DEFAULT_EXPRESS_BASE = "https://b2b.taxi.yandex.net";
 /** Default platform (NDD) contour host; the test contour is b2b.taxi.tst.yandex.net. */
-const DEFAULT_PLATFORM_BASE = "https://b2b-authproxy.taxi.yandex.net";
+export const DEFAULT_PLATFORM_BASE = "https://b2b-authproxy.taxi.yandex.net";
 
 /**
- * A missing or malformed environment variable. Thrown instead of exiting on the
- * spot so index.ts can report the drop-off before the process dies; `reason` is
- * the machine-readable code that ships with that ping (never a variable's value).
+ * A malformed environment variable. Thrown instead of exiting on the spot so
+ * index.ts can carry the problem into the session (degraded start) and report
+ * it; `reason` is the machine-readable code that ships with that ping (never a
+ * variable's value). A *missing* token is NOT a ConfigError — see loadConfig.
  */
 export class ConfigError extends Error {
   readonly reason: string;
@@ -20,13 +21,15 @@ export class ConfigError extends Error {
   }
 }
 
-function die(message: string, reason: string): never {
-  throw new ConfigError(message, reason);
-}
-
 /**
- * Builds the client config from environment variables, throwing ConfigError if
- * a required one is missing.
+ * Builds the client config from environment variables.
+ *
+ * Missing tokens are NOT an error here: the server starts anyway and the check
+ * happens per contour at call time (CredentialsError in client.ts), so an
+ * unconfigured install completes the MCP handshake and the model can tell the
+ * user which variable to set — instead of dying before `initialize` and leaving
+ * a silent red cross. There is no in-chat login for a Bearer token: the fix is
+ * the operator setting the variables and restarting the server.
  *
  *   YANDEX_DELIVERY_TOKEN              Bearer token shared by both contours
  *   YANDEX_DELIVERY_EXPRESS_TOKEN      express-contour override (optional)
@@ -39,39 +42,22 @@ function die(message: string, reason: string): never {
  *   YANDEX_DELIVERY_MAX_RETRIES        transient-error retries (default 3)
  *
  * The common token fills whichever contour has no override; a contour left
- * without any token is an error (the express and platform cabinets may issue
- * different tokens, so a half-configured server would fail confusingly late).
+ * without any token stays unset and rejects only its own calls (the express and
+ * platform cabinets may issue different tokens, so a half-configured server
+ * still serves the contour it has a token for).
  */
 export function loadConfig(): DeliveryConfig {
   const common = process.env.YANDEX_DELIVERY_TOKEN;
   const expressToken = process.env.YANDEX_DELIVERY_EXPRESS_TOKEN || common;
   const platformToken = process.env.YANDEX_DELIVERY_PLATFORM_TOKEN || common;
 
-  if (!expressToken && !platformToken) {
-    die(
-      "YANDEX_DELIVERY_TOKEN is required (Bearer token from dostavka.yandex.ru → «Интеграции» → «Получить токен»).",
-      "missing_token",
-    );
-  }
-  if (!expressToken) {
-    die(
-      "Express-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_EXPRESS_TOKEN.",
-      "missing_express_token",
-    );
-  }
-  if (!platformToken) {
-    die(
-      "Platform-contour token is missing: set YANDEX_DELIVERY_TOKEN (shared) or YANDEX_DELIVERY_PLATFORM_TOKEN.",
-      "missing_platform_token",
-    );
-  }
-
   const timeoutMs = Number(process.env.YANDEX_DELIVERY_TIMEOUT_MS);
   const maxRetries = Number(process.env.YANDEX_DELIVERY_MAX_RETRIES);
 
   return {
-    expressToken,
-    platformToken,
+    // An empty string reads as absent, never as an empty credential.
+    expressToken: expressToken || undefined,
+    platformToken: platformToken || undefined,
     expressBase: process.env.YANDEX_DELIVERY_EXPRESS_BASE_URL || DEFAULT_EXPRESS_BASE,
     platformBase: process.env.YANDEX_DELIVERY_PLATFORM_BASE_URL || DEFAULT_PLATFORM_BASE,
     lang: process.env.YANDEX_DELIVERY_LANG || "ru",
