@@ -81,9 +81,11 @@
 
 **Через интерфейс приложения:**
 
-1. Откройте **Settings → Plugins → MCP servers**.
+1. Откройте **Settings → MCP servers**.
 2. Нажмите **Add server**.
-3. Добавьте команду запуска `npx -y mcp-yandex-dostavka@latest` и переменную окружения `YANDEX_DELIVERY_TOKEN` со своим токеном.
+3. Выберите **STDIO**, затем укажите команду запуска `npx -y mcp-yandex-dostavka@latest` и переменную окружения `YANDEX_DELIVERY_TOKEN` со своим токеном.
+
+4. Нажмите **Save**, затем **Restart**.
 
 **Через командную строку:**
 
@@ -101,7 +103,7 @@ codex mcp list
 
 Команда сохраняет сервер в общей конфигурации Codex. Если Codex уже открыт, перезапустите его.
 
-[Официальная инструкция Codex](https://developers.openai.com/codex/mcp/)
+[Официальная инструкция Codex](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)
 
 </details>
 
@@ -110,9 +112,9 @@ codex mcp list
 
 <br>
 
-1. Откройте Claude Desktop и перейдите в **Settings → Developer**.
-2. Нажмите **Edit Config**. Claude откроет файл настроек в текстовом редакторе.
-3. Добавьте в него MCP-сервер. Если в файле уже есть другие серверы, сохраните их и добавьте только запись `yandex-dostavka`:
+Актуальный официальный путь — **Settings → Extensions**. Для пользовательского desktop extension откройте **Advanced settings → Extension Developer → Install Extension…**, выберите файл `.mcpb` и следуйте подсказкам.
+
+Этот репозиторий сейчас публикует npm-пакет со stdio и пока не содержит `.mcpb`. Поэтому используйте приведённый ниже JSON stdio-конфиг как fallback только в сборках Claude Desktop, где ещё поддерживается локальная конфигурация:
 
 ```json
 {
@@ -128,14 +130,11 @@ codex mcp list
 }
 ```
 
-4. Сохраните файл и перезапустите Claude Desktop.
+В таких сборках сохраните его в `~/Library/Application Support/Claude/claude_desktop_config.json` на macOS или `%APPDATA%\Claude\claude_desktop_config.json` на Windows.
 
-Если кнопки **Edit Config** нет, откройте файл напрямую:
+Сохраните файл и перезапустите Claude Desktop.
 
-- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-
-[Официальная инструкция Claude Desktop](https://claude.com/docs/connectors/building/mcp-apps/getting-started)
+[Официальная инструкция Claude Desktop](https://support.claude.com/en/articles/10949351-getting-started-with-local-mcp-servers-on-claude-desktop)
 
 </details>
 
