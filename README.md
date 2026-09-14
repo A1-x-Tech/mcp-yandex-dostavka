@@ -1,8 +1,8 @@
 # <img src="./assets/a1-logo.svg" alt="A1" width="40">&nbsp;Яндекс Доставка MCP
 
 [![npm](https://img.shields.io/npm/v/mcp-yandex-dostavka)](https://www.npmjs.com/package/mcp-yandex-dostavka)
-[![CI](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml/badge.svg)](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml)
 [![Glama](https://glama.ai/mcp/servers/A1-x-Tech/mcp-yandex-dostavka/badges/score.svg)](https://glama.ai/mcp/servers/A1-x-Tech/mcp-yandex-dostavka)
+[![CI](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml/badge.svg)](https://github.com/A1-x-Tech/mcp-yandex-dostavka/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **A1 Яндекс Доставка MCP** позволяет управлять корпоративной доставкой из Claude, Codex, Cursor и других AI-приложений. Вы ставите задачу обычными словами, а ассистент обращается к вашему аккаунту Яндекс Доставки, рассчитывает стоимость, оформляет отправления и показывает их статус.
