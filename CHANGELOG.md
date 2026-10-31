@@ -90,3 +90,7 @@
   (включая реальный MCP-хендшейк по stdio); CI на Node 20/22/24.
 
 [1.2.0]: https://github.com/A1-x-Tech/mcp-yandex-dostavka/releases/tag/v1.2.0
+[1.1.0]: https://github.com/A1-x-Tech/mcp-yandex-dostavka/releases/tag/v1.1.0
+[1.0.0]: https://github.com/A1-x-Tech/mcp-yandex-dostavka/releases/tag/v1.0.0
+[0.1.1]: https://github.com/A1-x-Tech/mcp-yandex-dostavka/releases/tag/v0.1.1
+[0.1.0]: https://github.com/A1-x-Tech/mcp-yandex-dostavka/releases/tag/v0.1.0
